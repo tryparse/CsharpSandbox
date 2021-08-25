@@ -13,20 +13,20 @@ namespace CsharpSandbox.Tasks
         {
             var random = new Random();
 
-            Func<Guid, Task> process = async id =>
+            async Task action(Guid guid)
             {
-                //await Task.Run(() => { Console.WriteLine($"{id}: start"); });
-                await Task.Delay(1000).ConfigureAwait(false);
-                await Task.Run(() => { Console.WriteLine($"{id}: end"); });
-            };
+                await Task.Run(() => { Console.WriteLine($"{guid}: start"); }, cancellationToken);
+                await Task.Delay(random.Next(1000, 5000), cancellationToken);
+                await Task.Run(() => { Console.WriteLine($"{guid}: done"); }, cancellationToken);
+            }
 
             ActionBlock<Guid> actionBlockParallel = new ActionBlock<Guid>(
-                process, 
+                action, 
                 new ExecutionDataflowBlockOptions()
                 { 
-                    MaxDegreeOfParallelism = Environment.ProcessorCount,
+                    MaxDegreeOfParallelism = 1,
                     CancellationToken = cancellationToken,
-                    BoundedCapacity = 100
+                    BoundedCapacity = 1
                 });
 
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -35,16 +35,22 @@ namespace CsharpSandbox.Tasks
             {
                 var guid = Guid.NewGuid();
 
+                Console.WriteLine($"{guid}: added");
+
                 try
                 {
-                    if (random.NextDouble() > 0.9)
-                    {
-                        throw new InvalidOperationException("You doing it wrong");
-                    }
                     await actionBlockParallel.SendAsync(guid, cancellationToken);
+                }
+                catch (AggregateException ex)
+                {
+                    foreach (var inner in ex.InnerExceptions)
+                    {
+                        Console.WriteLine(inner.Message);
+                    }
                 }
                 catch (TaskCanceledException ex)
                 {
+                    actionBlockParallel.Complete();
                     Console.WriteLine(ex.Message);
                 }
                 catch (Exception ex)

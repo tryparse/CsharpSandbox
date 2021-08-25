@@ -14,12 +14,10 @@ namespace CsharpSandbox
             Console.CancelKeyPress += Console_CancelKeyPress;
             Console.WriteLine($"Start: {nameof(Task)}.{nameof(Main)}");
 
-            //var runner = new ActionTasksSandbox();
+            var runner = new ActionTasksSandbox();
 
-            //await runner.Run(_cancellationTokenSource.Token);
-            var runner = new ListArguments.ListArgumentsSandbox();
+            await runner.Run(_cancellationTokenSource.Token);
 
-            runner.Run();
 
             Console.WriteLine("done");
             Console.ReadKey(true);
