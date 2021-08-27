@@ -9,6 +9,8 @@ namespace CsharpSandbox.Tasks
 {
     class ActionTasksSandbox : IAsyncSandboxRunner
     {
+        volatile int count;
+
         public async Task Run(CancellationToken cancellationToken)
         {
             var random = new Random();
@@ -18,15 +20,16 @@ namespace CsharpSandbox.Tasks
                 await Task.Run(() => { Console.WriteLine($"{guid}: start"); }, cancellationToken);
                 await Task.Delay(random.Next(1000, 5000), cancellationToken);
                 await Task.Run(() => { Console.WriteLine($"{guid}: done"); }, cancellationToken);
+                Interlocked.Increment(ref count);
             }
 
             ActionBlock<Guid> actionBlockParallel = new ActionBlock<Guid>(
                 action, 
                 new ExecutionDataflowBlockOptions()
                 { 
-                    MaxDegreeOfParallelism = 1,
+                    MaxDegreeOfParallelism = Environment.ProcessorCount,
                     CancellationToken = cancellationToken,
-                    BoundedCapacity = 1
+                    BoundedCapacity = 10
                 });
 
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -60,7 +63,7 @@ namespace CsharpSandbox.Tasks
             }
 
             stopwatch.Stop();
-            Console.WriteLine(stopwatch.ElapsedMilliseconds);
+            Console.WriteLine($"{count} tasks processed in {stopwatch.ElapsedMilliseconds} milliseconds");
         }
     }
 }

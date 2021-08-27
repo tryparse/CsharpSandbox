@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using ClassLibrary1;
 using CsharpSandbox.Tasks;
 
 namespace CsharpSandbox
@@ -14,10 +15,13 @@ namespace CsharpSandbox
             Console.CancelKeyPress += Console_CancelKeyPress;
             Console.WriteLine($"Start: {nameof(Task)}.{nameof(Main)}");
 
-            var runner = new ActionTasksSandbox();
+            //var runner = new HeapStack.HeapStackSandbox();
 
-            await runner.Run(_cancellationTokenSource.Token);
+            //runner.Run();
+            IExample example = new Example();
 
+            //example.Run(); // error
+            example.PublicRun();
 
             Console.WriteLine("done");
             Console.ReadKey(true);
