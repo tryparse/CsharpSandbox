@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ClassLibrary1;
 using CsharpSandbox.Tasks;
+using CsharpSandbox.TryCatchFinally;
 
 namespace CsharpSandbox
 {
@@ -15,13 +16,9 @@ namespace CsharpSandbox
             Console.CancelKeyPress += Console_CancelKeyPress;
             Console.WriteLine($"Start: {nameof(Task)}.{nameof(Main)}");
 
-            //var runner = new HeapStack.HeapStackSandbox();
+            var runner = new TryFinallySandbox();
 
-            //runner.Run();
-            IExample example = new Example();
-
-            //example.Run(); // error
-            example.PublicRun();
+            await runner.Run(_cancellationTokenSource.Token);
 
             Console.WriteLine("done");
             Console.ReadKey(true);
