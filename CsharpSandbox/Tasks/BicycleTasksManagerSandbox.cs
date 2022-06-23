@@ -11,7 +11,7 @@ namespace CsharpSandbox.Tasks
         private volatile int _taskCount;
         private const int TASK_COUNT_LIMIT = 3;
 
-        public async Task Run(CancellationToken cancellationToken)
+        public async Task RunAsync(CancellationToken cancellationToken)
         {
             var random = new Random();
 

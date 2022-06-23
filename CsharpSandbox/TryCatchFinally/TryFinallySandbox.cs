@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,7 +7,7 @@ namespace CsharpSandbox.TryCatchFinally
 {
     class TryFinallySandbox : IAsyncSandboxRunner
     {
-        public async Task Run(CancellationToken cancellationToken)
+        public async Task RunAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -30,7 +28,10 @@ namespace CsharpSandbox.TryCatchFinally
             {
                 await Task.Delay(1000);
 
-                throw new NotImplementedException("Exception");
+                //await Task.Run(() =>
+                //{
+                //    throw new InvalidOperationException("Exception");
+                //});
 
                 return 100;
             }

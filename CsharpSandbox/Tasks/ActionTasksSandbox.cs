@@ -1,69 +1,147 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace CsharpSandbox.Tasks
 {
+    public static class MetricMonitoring
+    {
+        public static Meter AppMeter = new Meter("Program.Metrics");
+    }
+
     class ActionTasksSandbox : IAsyncSandboxRunner
     {
-        volatile int count;
+        private readonly Counter<int> _readCounter;
 
-        public async Task Run(CancellationToken cancellationToken)
+        public ActionTasksSandbox()
         {
-            var random = new Random();
+             _readCounter = MetricMonitoring.AppMeter.CreateCounter<int>($"{GetType().Name}.{nameof(ReadAsync)}");
+        }
 
-            async Task action(Guid guid)
-            {
-                await Task.Run(() => { Console.WriteLine($"{guid}: start"); }, cancellationToken);
-                await Task.Delay(random.Next(1000, 5000), cancellationToken);
-                await Task.Run(() => { Console.WriteLine($"{guid}: done"); }, cancellationToken);
-                Interlocked.Increment(ref count);
-            }
-
-            ActionBlock<Guid> actionBlockParallel = new ActionBlock<Guid>(
-                action, 
-                new ExecutionDataflowBlockOptions()
-                { 
-                    MaxDegreeOfParallelism = Environment.ProcessorCount,
-                    CancellationToken = cancellationToken,
-                    BoundedCapacity = 10
+        public async Task RunAsync(CancellationToken cancellationToken)
+        {
+            TransformBlock<int, ProcessingTask> initialBlock = new TransformBlock<int, ProcessingTask>(
+                async (id) => await ReadAsync(id, cancellationToken),
+                new ExecutionDataflowBlockOptions
+                {
+                    MaxDegreeOfParallelism = 4,
+                    EnsureOrdered = false,
+                    MaxMessagesPerTask = DataflowBlockOptions.Unbounded,
+                    BoundedCapacity = 4
                 });
+
+            ActionBlock<ProcessingTask> actionBlock = new ActionBlock<ProcessingTask>(
+                async (id) => await ProcessAsync(id, cancellationToken),
+                new ExecutionDataflowBlockOptions()
+                {
+                    MaxDegreeOfParallelism = 2,
+                    EnsureOrdered = false,
+                    MaxMessagesPerTask = DataflowBlockOptions.Unbounded,
+                    BoundedCapacity = 2
+                });
+
+            initialBlock.LinkTo(
+                actionBlock,
+                x => null != x);
+
+            initialBlock.LinkTo(DataflowBlock.NullTarget<ProcessingTask>());
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                var guid = Guid.NewGuid();
-
-                Console.WriteLine($"{guid}: added");
-
-                try
+                for (int i = 1; i <= 1000; i++)
                 {
-                    await actionBlockParallel.SendAsync(guid, cancellationToken);
-                }
-                catch (AggregateException ex)
-                {
-                    foreach (var inner in ex.InnerExceptions)
+                    try
                     {
-                        Console.WriteLine(inner.Message);
+                        var task = await initialBlock.SendAsync(i, cancellationToken);
+                        Console.WriteLine($"{i} {task}");
+                    }
+                    catch (AggregateException ex)
+                    {
+                        actionBlock.Complete();
+
+                        foreach (var inner in ex.InnerExceptions)
+                        {
+                            Console.WriteLine(inner.Message);
+                        }
+                    }
+                    catch (TaskCanceledException ex)
+                    {
+                        actionBlock.Complete();
+                        Console.WriteLine(ex.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        actionBlock.Complete();
+                        Console.WriteLine(ex.Message);
                     }
                 }
-                catch (TaskCanceledException ex)
-                {
-                    actionBlockParallel.Complete();
-                    Console.WriteLine(ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
+            }
+            finally
+            {
+                stopwatch.Stop();
+
+                //Console.WriteLine($"{count} tasks processed in {stopwatch.ElapsedMilliseconds} milliseconds");
+            }
+        }
+
+        private async Task<ProcessingTask> ReadAsync(int id, CancellationToken cancellationToken)
+        {
+            _readCounter.Add(1);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var stopwatch = Stopwatch.StartNew();
+
+            try
+            {
+
+                Console.WriteLine($"{nameof(ReadAsync)} {id}");
+
+                await Task.Delay(1000);
+
+                //if (id == 1)
+                //{
+                //    Console.WriteLine($"{nameof(ReadAsync)} {id} return null");
+                //    return null;
+                //}
+                //else
+                //{
+                return new ProcessingTask(id);
+                //}
+            }
+            finally
+            {
+                stopwatch.Stop();
+            }
+        }
+
+        private async Task ProcessAsync(ProcessingTask task, CancellationToken cancellationToken)
+        {
+            if (task == null)
+            {
+                return;
             }
 
-            stopwatch.Stop();
-            Console.WriteLine($"{count} tasks processed in {stopwatch.ElapsedMilliseconds} milliseconds");
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Console.WriteLine($"{nameof(ProcessAsync)} {task.ID}");
+
+            await Task.Delay(2000);
+        }
+    }
+
+    internal class ProcessingTask
+    {
+        public int ID { get; }
+
+        public ProcessingTask(int id)
+        {
+            ID = id;
         }
     }
 }

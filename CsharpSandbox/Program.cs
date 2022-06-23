@@ -1,32 +1,60 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ClassLibrary1;
+using CsharpSandbox.Median;
+using CsharpSandbox.ObjectPooling;
 using CsharpSandbox.Tasks;
-using CsharpSandbox.TryCatchFinally;
+using Serilog;
 
 namespace CsharpSandbox
 {
-    class Program
+    static class Program
     {
-        private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private static CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        delegate int Transformer(int x);
 
         static async Task Main(string[] args)
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
-            Console.WriteLine($"Start: {nameof(Task)}.{nameof(Main)}");
 
-            var runner = new TryFinallySandbox();
+            using var _logger = new LoggerConfiguration()
+                .MinimumLevel.Verbose()
+                .WriteTo.Console()
+                .WriteTo.File(path: "logs/log.txt", rollingInterval: RollingInterval.Day, flushToDiskInterval: TimeSpan.FromMilliseconds(500))
+                .CreateLogger();
 
-            await runner.Run(_cancellationTokenSource.Token);
+            //Console.WriteLine("press any key to start");
+            //Console.ReadKey(true);
 
-            Console.WriteLine("done");
+            //var sandbox = new ActionTasksSandbox();
+
+            //await sandbox.RunAsync(_cancellationTokenSource.Token);
+            var t = new TestClass();
+            Transformer transformer = t.Square;
+            Console.WriteLine(transformer(2));
+
+            _logger.Verbose("press any key to close");
             Console.ReadKey(true);
         }
 
-        private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
-            _cancellationTokenSource.Cancel(false);
+            if (e.SpecialKey == ConsoleSpecialKey.ControlC)
+            {
+                _cancellationTokenSource.Cancel();
+                e.Cancel = true;
+            }
+        }
+    }
+
+    public class TestClass
+    {
+        public int Square(int x)
+        {
+            return x * x;
         }
     }
 }

@@ -13,6 +13,6 @@ namespace CsharpSandbox
 
     interface IAsyncSandboxRunner
     {
-        Task Run(CancellationToken cancellationToken);
+        Task RunAsync(CancellationToken cancellationToken);
     }
 }
